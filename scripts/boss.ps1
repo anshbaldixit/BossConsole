@@ -161,6 +161,28 @@ function Show-Help {
 }
 
 # Main command handling
+function Resolve-BossPath {
+    <#
+        .SYNOPSIS
+        Make a user-typed path absolute against the current location.
+
+        .DESCRIPTION
+        The app resolves whatever a deep link carries against its own working directory,
+        not the caller's, so a relative path has to be resolved before it leaves the shim.
+        GetUnresolvedProviderPathFromPSPath works on a path that does not exist yet and
+        does not glob, so [ ] and * in a filename survive literally. It throws for an
+        unmapped drive; returning the argument unchanged there keeps the failure report
+        in BOSS's voice rather than surfacing a raw PowerShell error.
+    #>
+    param([string]$Path)
+    try {
+        return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    }
+    catch {
+        return $Path
+    }
+}
+
 switch ($Command.ToLower()) {
     "url" {
         if ([string]::IsNullOrEmpty($Argument)) {
@@ -179,7 +201,8 @@ switch ($Command.ToLower()) {
             Write-Host "Usage: boss.ps1 workspace <config>"
             exit 1
         }
-        $encoded = [System.Uri]::EscapeDataString($Argument)
+        $configPath = Resolve-BossPath $Argument
+        $encoded = [System.Uri]::EscapeDataString($configPath)
         $deepLink = "boss://workspace?config=$encoded"
         Open-BossDeepLink $deepLink
     }
@@ -190,7 +213,8 @@ switch ($Command.ToLower()) {
             Write-Host "Usage: boss.ps1 file <path>"
             exit 1
         }
-        $encoded = [System.Uri]::EscapeDataString($Argument)
+        $filePath = Resolve-BossPath $Argument
+        $encoded = [System.Uri]::EscapeDataString($filePath)
         $deepLink = "boss://file?path=$encoded"
         Open-BossDeepLink $deepLink
     }
@@ -202,7 +226,7 @@ switch ($Command.ToLower()) {
         }
         else {
             # Expand relative paths (., .., ~, etc.) to full path
-            $folderPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Argument)
+            $folderPath = Resolve-BossPath $Argument
         }
         $encoded = [System.Uri]::EscapeDataString($folderPath)
         $deepLink = "boss://folder?path=$encoded"
