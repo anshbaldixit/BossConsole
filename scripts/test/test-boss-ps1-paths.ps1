@@ -73,6 +73,22 @@ foreach ($pair in @(
     }
 }
 
+# Invoke-SmartDetection is a function, not a switch branch, so the loop above cannot
+# see it. It is the fourth caller: without it the unmapped-drive catch covers the
+# three verbs and not `boss.ps1 <path>`.
+$detectionRegex = [regex]::new(
+    '(?m)^function Invoke-SmartDetection \{.*?
+\}',
+    [System.Text.RegularExpressions.RegexOptions]::Singleline)
+$detectionMatch = $detectionRegex.Match($source)
+Assert-True $detectionMatch.Success 'the Invoke-SmartDetection function was located'
+if ($detectionMatch.Success) {
+    Assert-True ($detectionMatch.Groups[0].Value -match '\$expandedPath\s*=\s*Resolve-BossPath') `
+    'the bare-argument route resolves through Resolve-BossPath'
+    Assert-True (-not ($detectionMatch.Groups[0].Value -match 'GetUnresolvedProviderPathFromPSPath')) `
+    'the bare-argument route does not call the path API directly'
+}
+
 # --- Behaviour: run the shipped helper itself -----------------------------
 # Extracted rather than dot-sourcing boss.ps1, which would execute its switch.
 

@@ -67,6 +67,28 @@ function Open-BossDeepLink {
     }
 }
 
+function Resolve-BossPath {
+    <#
+        .SYNOPSIS
+        Make a user-typed path absolute against the current location.
+
+        .DESCRIPTION
+        The app resolves whatever a deep link carries against its own working directory,
+        not the caller's, so a relative path has to be resolved before it leaves the shim.
+        GetUnresolvedProviderPathFromPSPath works on a path that does not exist yet and
+        does not glob, so [ ] and * in a filename survive literally. It throws for an
+        unmapped drive; returning the argument unchanged there keeps the failure report
+        in BOSS's voice rather than surfacing a raw PowerShell error.
+    #>
+    param([string]$Path)
+    try {
+        return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    }
+    catch {
+        return $Path
+    }
+}
+
 function Invoke-SmartDetection {
     param([string]$Arg)
 
@@ -86,8 +108,9 @@ function Invoke-SmartDetection {
         return
     }
 
-    # Resolve path (handles relative paths and ~)
-    $expandedPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Arg)
+    # Resolve path (handles relative paths and ~) through the same helper the verbs
+    # use, so an unmapped drive is reported by BOSS here too
+    $expandedPath = Resolve-BossPath $Arg
 
     # Check if it's a file or directory
     if (Test-Path $expandedPath) {
@@ -161,28 +184,6 @@ function Show-Help {
 }
 
 # Main command handling
-function Resolve-BossPath {
-    <#
-        .SYNOPSIS
-        Make a user-typed path absolute against the current location.
-
-        .DESCRIPTION
-        The app resolves whatever a deep link carries against its own working directory,
-        not the caller's, so a relative path has to be resolved before it leaves the shim.
-        GetUnresolvedProviderPathFromPSPath works on a path that does not exist yet and
-        does not glob, so [ ] and * in a filename survive literally. It throws for an
-        unmapped drive; returning the argument unchanged there keeps the failure report
-        in BOSS's voice rather than surfacing a raw PowerShell error.
-    #>
-    param([string]$Path)
-    try {
-        return $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
-    }
-    catch {
-        return $Path
-    }
-}
-
 switch ($Command.ToLower()) {
     "url" {
         if ([string]::IsNullOrEmpty($Argument)) {
