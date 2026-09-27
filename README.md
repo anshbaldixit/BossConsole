@@ -322,12 +322,14 @@ This repository contains the source code for BOSS. For building from source and 
 - **A JDK to run Gradle:** 17 or newer, and one this Gradle version supports. The build compiles against a JDK 17 toolchain. If no JDK 17 is installed, Gradle asks the [Foojay](https://api.foojay.io) disco service for a build and downloads it into `~/.gradle/jdks` on the first build, reusing it afterwards. To keep the build hermetic and install JDK 17 yourself instead, set `org.gradle.java.installations.auto-download=false` in `~/.gradle/gradle.properties`.
 - **Gradle:** use the wrapper (`./gradlew`, currently 9.7.1). No local installation needed.
 - **Windows:** `.gitattributes` keeps the scripts LF whatever `core.autocrlf` is set to, so `gradlew`, `scripts/boss` and `scripts/test/*.sh` also run from WSL or a container against the same checkout.
-  It applies when a file is checked out, so a clone made before it existed still has CRLF scripts. A fresh clone is the simplest repair; to fix one in place, delete the covered files and let Git rewrite them:
+  It applies when a file is checked out, so a clone made before it existed still has CRLF scripts. A fresh clone is the simplest repair; to fix one in place, run these from the repository root in Git Bash or WSL, to delete the covered files and let Git rewrite them:
 
   ```bash
   git ls-files -z -- '*.sh' '*.py' '*.mjs' gradlew scripts/boss scripts/publish-plugin | xargs -0 rm -f
-  git checkout -- .
+  git checkout -- '*.sh' '*.py' '*.mjs' gradlew scripts/boss scripts/publish-plugin
   ```
+
+  Both commands are scoped to the paths `.gitattributes` covers, so unstaged work elsewhere in the tree survives; edits to the scripts themselves do not.
 
   `git add --renormalize .` does **not** do this: it restages the working tree into the index, and every covered path is already LF there, so it rewrites nothing on disk and only clears the `git status` signal. Setting `git config core.autocrlf false` for that clone is worth it too, since the attributes cover only the paths listed above.
 
